@@ -40,7 +40,7 @@ const Files = React.lazy(() => import("./main/Home/Files/Files"));
 
 const override: CSSProperties = {
   display: "flex",
-  margin: "500px auto",
+  margin: "50px auto",
   borderColor: "red",
 };
 
@@ -58,7 +58,7 @@ function App() {
       new Date(expiration) > new Date() &&
       location.pathname === "/"
     ) {
-      navigate("/Home");
+      navigate("/home/dashboard");
     }
   }, [navigate, location.pathname]);
 
@@ -75,49 +75,129 @@ function App() {
 
   return (
     <>
-      <Suspense
-        fallback={
-          <div>
-            <FadeLoader
-              cssOverride={override}
-              color="red"
-              aria-label="Loading Spinner"
-              data-testid="loader"
-            />
-          </div>
-        }
-      >
-        <Routes>
-          <Route path="/" element={<Login />} />
+      <Routes>
+        <Route path="/" element={<Login />} />
 
-          {/* Home layout */}
-          <Route path="/home" element={<ProtectedHome />}>
-            {/* Các route con nằm trong <Outlet /> */}
-            <Route path="main" element={<ProtectedDashboard />} />
-            <Route
-              path="projectmanagement"
-              element={<ProtectedProjectManagement />}
-            />
-            <Route path="tracking" element={<ProtectedWorkProcessTracking />} />
-            <Route
-              path="deliveryorder"
-              element={<ProtectedProjectDeliveryOrder />}
-            />
-            <Route path="files" element={<ProtectedFiles />} />
+        {/* Home layout */}
+        <Route path="/home" element={<ProtectedHome />}>
+          {/* Các route con nằm trong <Outlet /> */}
+          <Route
+            path="dashboard"
+            element={
+              <Suspense
+                fallback={
+                  <div style={{ textAlign: "center", marginTop: "50px" }}>
+                    <FadeLoader cssOverride={override} color="red" />
+                  </div>
+                }
+              >
+                <ProtectedDashboard />
+              </Suspense>
+            }
+          />
+          <Route
+            path="projectmanagement"
+            element={
+              <Suspense
+                fallback={
+                  <div style={{ textAlign: "center", marginTop: "50px" }}>
+                    <FadeLoader cssOverride={override} color="red" />
+                  </div>
+                }
+              >
+                <ProtectedProjectManagement />
+              </Suspense>
+            }
+          />
+          <Route
+            path="tracking"
+            element={
+              <Suspense
+                fallback={
+                  <div style={{ textAlign: "center", marginTop: "50px" }}>
+                    <FadeLoader cssOverride={override} color="red" />
+                  </div>
+                }
+              >
+                <ProtectedWorkProcessTracking />
+              </Suspense>
+            }
+          />
+          <Route
+            path="deliveryorder"
+            element={
+              <Suspense
+                fallback={
+                  <div style={{ textAlign: "center", marginTop: "50px" }}>
+                    <FadeLoader cssOverride={override} color="red" />
+                  </div>
+                }
+              >
+                <ProtectedProjectDeliveryOrder />
+              </Suspense>
+            }
+          />
+          <Route
+            path="files"
+            element={
+              <Suspense
+                fallback={
+                  <div style={{ textAlign: "center", marginTop: "50px" }}>
+                    <FadeLoader cssOverride={override} color="red" />
+                  </div>
+                }
+              >
+                <ProtectedFiles />
+              </Suspense>
+            }
+          />
 
-            {/* Admin và các route con */}
-            <Route path="admin" element={<ProtectedAdmin />} />
-            <Route
-              path="admin/groupPermission"
-              element={<ProtectedGroupPermission />}
-            />
-            <Route
-              path="admin/getListPermissions"
-              element={<ProtectedGetListPermissions />}
-            />
-          </Route>
-        </Routes>
-      </Suspense>
+          {/* Admin và các route con */}
+          <Route
+            path="admin"
+            element={
+              <Suspense
+                fallback={
+                  <div style={{ textAlign: "center", marginTop: "50px" }}>
+                    <FadeLoader cssOverride={override} color="red" />
+                  </div>
+                }
+              >
+                <ProtectedAdmin />
+              </Suspense>
+            }
+          />
+          <Route
+            path="admin/groupPermission"
+            element={
+              <Suspense
+                fallback={
+                  <div style={{ textAlign: "center", marginTop: "50px" }}>
+                    <FadeLoader cssOverride={override} color="red" />
+                  </div>
+                }
+              >
+                <ProtectedGroupPermission />
+              </Suspense>
+            }
+          />
+          <Route
+            path="admin/getListPermissions"
+            element={
+              <Suspense
+                fallback={
+                  <div style={{ textAlign: "center", marginTop: "50px" }}>
+                    <FadeLoader cssOverride={override} color="red" />
+                  </div>
+                }
+              >
+                <ProtectedGetListPermissions />
+              </Suspense>
+            }
+          />
+        </Route>
+      </Routes>
+
       <ToastContainer position="top-right" autoClose={3000} />
     </>
   );

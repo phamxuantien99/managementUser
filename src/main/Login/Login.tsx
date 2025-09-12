@@ -40,7 +40,7 @@ const Login = () => {
         localStorage.setItem("is_superuser", res.data.user_info.is_superuser);
 
         setIsLoggedIn(true);
-        navigate("/Home");
+        navigate("/home/dashboard");
       })
       .catch((e) => {
         setIsLoggedIn(false);

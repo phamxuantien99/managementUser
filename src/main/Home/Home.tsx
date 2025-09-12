@@ -1,5 +1,5 @@
 /* eslint-disable jsx-a11y/alt-text */
-import React, { useState } from "react";
+import React, { useState, Suspense } from "react";
 import {
   DesktopOutlined,
   FileOutlined,
@@ -10,6 +10,7 @@ import {
 import type { MenuProps } from "antd";
 import { Layout, Menu, theme } from "antd";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { FadeLoader } from "react-spinners";
 import "./style.css";
 
 const { Header, Content, Footer, Sider } = Layout;
@@ -51,12 +52,12 @@ const Home: React.FC = () => {
 
   // Ánh xạ path -> key trong menu
   const pathKeyMap: Record<string, string> = {
-    "/home/main": "1",
+    "/home/dashboard": "1",
     "/home/projectmanagement": "6",
     "/home/tracking": "2",
     "/home/deliveryorder": "5",
     "/home/admin": "3",
-    "/home/admin/groupPermission": "3", // route con cũng highlight User Management
+    "/home/admin/groupPermission": "3",
     "/home/admin/getListPermissions": "3",
     "/home/files": "4",
   };
@@ -67,7 +68,7 @@ const Home: React.FC = () => {
   const onClick: MenuProps["onClick"] = (e) => {
     switch (e.key) {
       case "1":
-        navigate("/home/main");
+        navigate("/home/dashboard");
         break;
       case "2":
         navigate("/home/tracking");
@@ -107,14 +108,22 @@ const Home: React.FC = () => {
           mode="inline"
           items={items}
           onClick={onClick}
-          selectedKeys={[currentKey]} // dùng selectedKeys để sync với route
+          selectedKeys={[currentKey]}
         />
       </Sider>
       <Layout>
         <Header style={{ padding: 0, background: colorBgContainer }} />
         <Content style={{ margin: "5px" }}>
-          {/* Render các route con */}
-          <Outlet />
+          {/* Suspense chỉ bọc Outlet để loading hiển thị bên phải */}
+          <Suspense
+            fallback={
+              <div style={{ textAlign: "center", marginTop: "50px" }}>
+                <FadeLoader color="red" />
+              </div>
+            }
+          >
+            <Outlet />
+          </Suspense>
         </Content>
         <Footer style={{ textAlign: "center" }}>
           Delta Tech ©2023 Created by DTV
