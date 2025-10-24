@@ -1,10 +1,10 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import apiAxios from "../../../../api/api";
-import { useGroups } from "../../../service/hooks/useGroup";
 import { useDebounce } from "../../../service/hooks/useDebounce";
+import { useGroups } from "../../../service/hooks/useGroup";
 
 interface Permission {
   id: number;
