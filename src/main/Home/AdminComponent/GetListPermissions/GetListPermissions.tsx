@@ -1,15 +1,17 @@
-import CloseIcon from "@mui/icons-material/Close";
+import DeleteIcon from "@mui/icons-material/Delete";
 import {
-  AppBar,
   Box,
   Button,
+  CircularProgress,
   Container,
   Dialog,
+  DialogActions,
   DialogContent,
+  DialogTitle,
   IconButton,
+  MenuItem,
   Paper,
-  Slide,
-  Snackbar,
+  Select,
   Table,
   TableBody,
   TableCell,
@@ -17,13 +19,14 @@ import {
   TableHead,
   TableRow,
   TextField,
-  Toolbar,
   Typography,
 } from "@mui/material";
-import { TransitionProps } from "@mui/material/transitions";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { toast } from "react-toastify";
 import apiAxios from "../../../../api/api";
+import { useDebounce } from "../../../service/hooks/useDebounce";
 
 interface Permission {
   id: number;
@@ -37,80 +40,118 @@ interface Permission {
 
 const API_URL = "https://ec2api.deltatech-backend.com/api/v1/permissions";
 
-const Transition = React.forwardRef(function Transition(
-  props: TransitionProps & { children: React.ReactElement },
-  ref: React.Ref<unknown>
-) {
-  return <Slide direction="up" ref={ref} {...props} />;
-});
-
 const PermissionPage: React.FC = () => {
-  const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
-  const [formData, setFormData] = useState<Omit<Permission, "id">>({
+  const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // 🔹 Lấy giá trị filter từ URL
+  const resource = searchParams.get("resource") || "";
+  const action = searchParams.get("action") || "";
+  const name = searchParams.get("name") || "";
+
+  const [formData, setFormData] = useState<Omit<any, "id">>({
     name: "",
     resource: "",
     action: "",
-    description: "",
-    endpoint: "",
-    method: "",
   });
 
   const [openDialog, setOpenDialog] = useState(false);
 
-  const [snackbar, setSnackbar] = useState<{
-    open: boolean;
-    message: string;
-    success: boolean;
-  }>({
-    open: false,
-    message: "",
-    success: true,
-  });
+  // 🔹 URL động dựa theo filter
+  const queryUrl = useMemo(() => {
+    const params = new URLSearchParams();
+    if (resource) params.append("resource", resource);
+    if (action) params.append("action", action);
+    if (name) params.append("name", name);
+    return `${API_URL}?${params.toString()}`;
+  }, [resource, action, name]);
 
+  // 🔹 Lấy danh sách Permission
   const { data: permissions = [], isLoading } = useQuery<Permission[]>({
-    queryKey: ["permissions"],
+    queryKey: ["permissions", queryUrl],
     queryFn: async () => {
-      const res = await apiAxios.get(API_URL);
+      const res = await apiAxios.get(queryUrl);
       return res.data;
     },
   });
 
+  // --- 2️⃣ Thêm state local ---
+  const [nameInput, setNameInput] = useState(name);
+
+  // --- 3️⃣ Debounce giá trị nhập ---
+  const debouncedName = useDebounce(nameInput, 500);
+
+  // --- 4️⃣ Cập nhật URL sau khi debounce ổn định ---
+  useEffect(() => {
+    // chỉ cập nhật nếu khác với current URL param
+    if (debouncedName !== name) {
+      const newParams = new URLSearchParams(searchParams);
+      if (debouncedName) newParams.set("name", debouncedName);
+      else newParams.delete("name");
+      setSearchParams(newParams);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedName]);
+
+  // Mutation Delete
+
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+
+  const mutationDelete = useMutation({
+    mutationFn: async (id: number) => {
+      setDeletingId(id); // Ghi nhớ ID đang bị xóa
+      await apiAxios.delete(
+        `https://ec2api.deltatech-backend.com/api/v1/permissions/${id}`
+      );
+    },
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["permissions"] });
+      toast.success("Permission deleted successfully!");
+    },
+    onError: () => {
+      toast.error("Failed to delete permission.");
+    },
+    onSettled: () => {
+      setDeletingId(null); // Reset sau khi xóa xong hoặc lỗi
+    },
+  });
+
+  // 🔹 Mutation thêm mới
   const mutation = useMutation({
     mutationFn: async (newPermission: Omit<Permission, "id">) => {
       await apiAxios.post(API_URL, newPermission);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["permissions"] });
-      setSnackbar({
-        open: true,
-        message: "Permission added successfully!",
-        success: true,
-      });
+
+      toast.success("Permission added successfully!");
       setFormData({
         name: "",
         resource: "",
         action: "",
-        description: "",
-        endpoint: "",
-        method: "",
       });
       setOpenDialog(false);
     },
     onError: () => {
-      setSnackbar({
-        open: true,
-        message: "Failed to add permission.",
-        success: false,
-      });
+      toast.error("Failed to add permission.");
     },
   });
 
+  // 🔹 Cập nhật URL khi thay đổi filter
+  const handleFilterChange = (key: string, value: string) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (value) newParams.set(key, value);
+    else newParams.delete(key);
+    setSearchParams(newParams);
+  };
+
+  // 🔹 Form thay đổi
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
-
-  console.log({ formData });
 
   const handleSubmit = () => {
     mutation.mutate(formData);
@@ -118,58 +159,146 @@ const PermissionPage: React.FC = () => {
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4 }}>
-      <Typography variant="h4" gutterBottom>
-        Permissions Management
-      </Typography>
+      <div className="flex justify-between items-center mb-4">
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outlined"
+            color="primary"
+            onClick={() => navigate("/home/admin/groupPermission")}
+          >
+            Back
+          </Button>
 
-      <Box textAlign="right" mb={2}>
-        <Button
-          variant="contained"
-          color="primary"
+          <Typography variant="h4" gutterBottom>
+            Permissions Management
+          </Typography>
+        </div>
+
+        <button
           onClick={() => setOpenDialog(true)}
+          className="px-2 py-5 bg-[#1976d2] text-white rounded-md hover:bg-[#27b771] transition duration-300 ease-in-out min-w-[120px]"
         >
-          + Add Permission
-        </Button>
-      </Box>
+          + Add
+        </button>
+      </div>
 
+      {/* 🔹 Bảng dữ liệu + Bộ lọc trong header */}
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
+            {/* Tiêu đề cột */}
             <TableRow>
-              <TableCell>
+              <TableCell sx={{ width: "10%" }}>
+                <strong>No.</strong>
+              </TableCell>
+              <TableCell sx={{ width: "30%" }}>
                 <strong>Name</strong>
               </TableCell>
-              <TableCell>
+              <TableCell sx={{ width: "30%" }}>
                 <strong>Resource</strong>
               </TableCell>
-              <TableCell>
+              <TableCell sx={{ width: "30%" }}>
                 <strong>Action</strong>
               </TableCell>
-              <TableCell>
-                <strong>Description</strong>
+              <TableCell sx={{ width: "30%" }}>
+                <strong>Delete</strong>
               </TableCell>
+            </TableRow>
+
+            {/* Hàng filter ngay bên dưới tiêu đề */}
+            <TableRow>
+              <TableCell></TableCell>
+
+              {/* Filter Name */}
               <TableCell>
-                <strong>Endpoint</strong>
+                <TextField
+                  fullWidth
+                  size="small"
+                  placeholder="Search Name"
+                  value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value)}
+                />
               </TableCell>
+
+              {/* Filter Resource */}
               <TableCell>
-                <strong>Method</strong>
+                <Select
+                  fullWidth
+                  size="small"
+                  displayEmpty
+                  value={resource}
+                  onChange={(e) =>
+                    handleFilterChange("resource", e.target.value)
+                  }
+                >
+                  <MenuItem value="">All</MenuItem>
+                  {[
+                    "user",
+                    "installation",
+                    "measurement",
+                    "logistic",
+                    "invoice",
+                  ].map((r) => (
+                    <MenuItem key={r} value={r}>
+                      {r}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </TableCell>
+
+              {/* Filter Action */}
+              <TableCell>
+                <Box display="flex" alignItems="center" gap={1}>
+                  <Select
+                    fullWidth
+                    size="small"
+                    displayEmpty
+                    value={action}
+                    onChange={(e) =>
+                      handleFilterChange("action", e.target.value)
+                    }
+                  >
+                    <MenuItem value="">All</MenuItem>
+                    {["create", "read", "update", "delete"].map((a) => (
+                      <MenuItem key={a} value={a}>
+                        {a}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </Box>
               </TableCell>
             </TableRow>
           </TableHead>
+
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={6}>Loading...</TableCell>
+                <TableCell colSpan={4}>Loading...</TableCell>
+              </TableRow>
+            ) : permissions.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={4}>No results found.</TableCell>
               </TableRow>
             ) : (
-              permissions.map((perm) => (
+              permissions.map((perm, index) => (
                 <TableRow key={perm.id}>
+                  <TableCell>{index + 1}</TableCell>
                   <TableCell>{perm.name}</TableCell>
                   <TableCell>{perm.resource}</TableCell>
                   <TableCell>{perm.action}</TableCell>
-                  <TableCell>{perm.description}</TableCell>
-                  <TableCell>{perm.endpoint}</TableCell>
-                  <TableCell>{perm.method}</TableCell>
+                  <TableCell>
+                    <IconButton
+                      color="error"
+                      onClick={() => mutationDelete.mutate(perm.id)}
+                      disabled={deletingId === perm.id}
+                    >
+                      {deletingId === perm.id ? (
+                        <CircularProgress size={20} color="error" />
+                      ) : (
+                        <DeleteIcon />
+                      )}
+                    </IconButton>
+                  </TableCell>
                 </TableRow>
               ))
             )}
@@ -177,67 +306,93 @@ const PermissionPage: React.FC = () => {
         </Table>
       </TableContainer>
 
-      {/* Fullscreen Dialog */}
+      {/* 🔹 Dialog thêm mới */}
       <Dialog
-        fullScreen
         open={openDialog}
         onClose={() => setOpenDialog(false)}
-        TransitionComponent={Transition}
+        maxWidth="sm"
+        fullWidth
       >
-        <AppBar sx={{ position: "relative" }}>
-          <Toolbar>
-            <IconButton
-              edge="start"
-              color="inherit"
-              onClick={() => setOpenDialog(false)}
-              aria-label="close"
-            >
-              <CloseIcon />
-            </IconButton>
-            <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div">
-              Add New Permission
-            </Typography>
-            <Button
-              autoFocus
-              color="inherit"
-              onClick={handleSubmit}
-              disabled={mutation.isPending}
-            >
-              {mutation.isPending ? "Submitting..." : "Save"}
-            </Button>
-          </Toolbar>
-        </AppBar>
-        <DialogContent>
-          <Box
-            display="grid"
-            gridTemplateColumns="repeat(2, 1fr)"
-            gap={2}
-            mt={3}
-          >
-            {Object.keys(formData).map((key) => (
-              <TextField
-                key={key}
-                name={key}
-                label={key.charAt(0).toUpperCase() + key.slice(1)}
-                value={(formData as any)[key]}
-                onChange={handleChange}
-                fullWidth
-              />
-            ))}
+        <DialogTitle>Add New Permission</DialogTitle>
+
+        <DialogContent dividers>
+          <Box display="flex" flexDirection="column" gap={2} mt={1}>
+            {Object.keys(formData).map((key) => {
+              const label = key.charAt(0).toUpperCase() + key.slice(1);
+
+              if (key === "action") {
+                return (
+                  <TextField
+                    select
+                    key={key}
+                    name={key}
+                    label="Action"
+                    value={(formData as any)[key]}
+                    onChange={handleChange}
+                    fullWidth
+                  >
+                    {["create", "read", "update", "delete"].map((option) => (
+                      <MenuItem key={option} value={option}>
+                        {option}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                );
+              }
+
+              if (key === "resource") {
+                return (
+                  <TextField
+                    select
+                    key={key}
+                    name={key}
+                    label="Resource"
+                    value={(formData as any)[key]}
+                    onChange={handleChange}
+                    fullWidth
+                  >
+                    {[
+                      "user",
+                      "installation",
+                      "measurement",
+                      "logistic",
+                      "invoice",
+                    ].map((option) => (
+                      <MenuItem key={option} value={option}>
+                        {option}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                );
+              }
+
+              return (
+                <TextField
+                  key={key}
+                  name={key}
+                  label={label}
+                  value={(formData as any)[key]}
+                  onChange={handleChange}
+                  fullWidth
+                />
+              );
+            })}
           </Box>
         </DialogContent>
-      </Dialog>
 
-      <Snackbar
-        open={snackbar.open}
-        onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
-        message={snackbar.message}
-        autoHideDuration={3000}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-        ContentProps={{
-          sx: { background: snackbar.success ? "green" : "red" },
-        }}
-      />
+        <DialogActions>
+          <Button onClick={() => setOpenDialog(false)} color="inherit">
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            variant="contained"
+            disabled={mutation.isPending}
+          >
+            {mutation.isPending ? "Submitting..." : "Save"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };
