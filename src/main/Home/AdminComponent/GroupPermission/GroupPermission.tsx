@@ -5,6 +5,8 @@ import { toast } from "react-toastify";
 import apiAxios from "../../../../api/api";
 import { useDebounce } from "../../../service/hooks/useDebounce";
 import { useGroups } from "../../../service/hooks/useGroup";
+import DeleteIcon from "@mui/icons-material/Delete";
+import { IconButton } from "@mui/material";
 
 interface Permission {
   id: number;
@@ -114,6 +116,12 @@ const GroupPermission = () => {
     <div>
       <div className="flex gap-3 mb-4">
         <button
+          onClick={() => navigate("/home/admin")}
+          className="px-3 py-2 bg-[#1976d2] text-white rounded-md hover:bg-[#27b771] transition"
+        >
+          Back
+        </button>
+        <button
           onClick={() => setOpen(true)}
           className="px-3 py-2 bg-[#1976d2] text-white rounded-md hover:bg-[#27b771] transition"
         >
@@ -161,19 +169,13 @@ const GroupPermission = () => {
                     </ul>
                   </td>
                   <td style={tdStyle}>
-                    <button
+                    <IconButton
+                      color="error"
                       onClick={() => handleDelete(role.id)}
-                      style={{
-                        padding: "6px 12px",
-                        backgroundColor: "#e53935",
-                        color: "white",
-                        border: "none",
-                        borderRadius: 4,
-                        cursor: "pointer",
-                      }}
+                      aria-label="Delete"
                     >
-                      Delete
-                    </button>
+                      <DeleteIcon />
+                    </IconButton>
                   </td>
                 </tr>
               ))}
