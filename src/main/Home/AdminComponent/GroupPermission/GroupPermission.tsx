@@ -1,12 +1,13 @@
+import DeleteIcon from "@mui/icons-material/Delete";
+import EditIcon from "@mui/icons-material/Edit";
+import { IconButton } from "@mui/material";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import apiAxios from "../../../../api/api";
 import { useDebounce } from "../../../service/hooks/useDebounce";
 import { useGroups } from "../../../service/hooks/useGroup";
-import DeleteIcon from "@mui/icons-material/Delete";
-import { IconButton } from "@mui/material";
 
 interface Permission {
   id: number;
@@ -32,8 +33,10 @@ const GroupPermission = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  // --- Popup states ---
-  const [open, setOpen] = useState(false);
+  // --- State chính ---
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [open, setOpen] = useState(false); // Create popup
+  const [editOpen, setEditOpen] = useState(false); // Edit popup
   const [permissionModalOpen, setPermissionModalOpen] = useState(false);
 
   // --- Form data ---
@@ -50,7 +53,7 @@ const GroupPermission = () => {
   // --- Groups list ---
   const { data: dataGroupPermission, isLoading: isGroupsLoading } = useGroups();
 
-  // --- Permissions query (filtered locally, no URL params) ---
+  // --- Permissions query ---
   const queryUrl = useMemo(() => {
     const params = new URLSearchParams();
     if (resource) params.append("resource", resource);
@@ -69,7 +72,36 @@ const GroupPermission = () => {
     },
   });
 
-  // --- Handle group creation ---
+  // --- Fetch group by ID (cho popup Edit) ---
+  const {
+    data: dataGroupId,
+    isLoading: isLoadingGroupId,
+    isFetching: isFetchingGroupId,
+  } = useQuery({
+    queryKey: ["groupid", selectedId],
+    queryFn: async () => {
+      const res = await apiAxios.get(
+        `https://ec2api.deltatech-backend.com/api/v1/groups/${selectedId}`
+      );
+      return res.data;
+    },
+    enabled: !!selectedId,
+    staleTime: 1000 * 60 * 5,
+    retry: 2,
+  });
+
+  // Khi có data groupId, điền vào form edit
+  useEffect(() => {
+    if (dataGroupId) {
+      setName(dataGroupId.name || "");
+      setDescription(dataGroupId.description || "");
+      setSelectedPermissions(
+        dataGroupId.permissions?.map((p: Permission) => p.id) || []
+      );
+    }
+  }, [dataGroupId]);
+
+  // --- CREATE ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -90,7 +122,27 @@ const GroupPermission = () => {
     }
   };
 
-  // --- Delete group ---
+  // --- UPDATE ---
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedId) return;
+    try {
+      const body = { name, description, permission_ids: selectedPermissions };
+      await apiAxios.put(
+        `https://ec2api.deltatech-backend.com/api/v1/groups/${selectedId}`,
+        body
+      );
+      queryClient.invalidateQueries({ queryKey: ["groups"] });
+      toast.success("✅ Group updated successfully!");
+      setEditOpen(false);
+      setSelectedId(null);
+    } catch (err) {
+      console.error(err);
+      toast.error("❌ Failed to update group.");
+    }
+  };
+
+  // --- DELETE ---
   const handleDelete = async (id: number) => {
     if (!window.confirm("Bạn có chắc muốn xóa group này?")) return;
     try {
@@ -122,12 +174,16 @@ const GroupPermission = () => {
           Back
         </button>
         <button
-          onClick={() => setOpen(true)}
+          onClick={() => {
+            setOpen(true);
+            setName("");
+            setDescription("");
+            setSelectedPermissions([]);
+          }}
           className="px-3 py-2 bg-[#1976d2] text-white rounded-md hover:bg-[#27b771] transition"
         >
           Create New Group
         </button>
-
         <button
           onClick={() => navigate("/home/admin/getListPermissions")}
           className="px-3 py-2 bg-[#1976d2] text-white rounded-md hover:bg-[#27b771] transition"
@@ -170,6 +226,16 @@ const GroupPermission = () => {
                   </td>
                   <td style={tdStyle}>
                     <IconButton
+                      color="primary"
+                      onClick={() => {
+                        setSelectedId(role.id);
+                        setEditOpen(true);
+                      }}
+                      aria-label="Edit"
+                    >
+                      <EditIcon />
+                    </IconButton>
+                    <IconButton
                       color="error"
                       onClick={() => handleDelete(role.id)}
                       aria-label="Delete"
@@ -183,175 +249,230 @@ const GroupPermission = () => {
         </table>
       )}
 
-      {/* Popup Create Group */}
+      {/* Popup Create */}
       {open && (
-        <div style={overlayStyle}>
-          <div style={{ ...modalStyle, maxWidth: 600 }}>
-            <div style={headerStyle}>
-              <h2>Create New Group</h2>
-              <button onClick={() => setOpen(false)} style={closeBtnStyle}>
-                ×
-              </button>
-            </div>
-            <form onSubmit={handleSubmit}>
-              <div style={formGroup}>
-                <label style={labelStyle}>Group Name</label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                  style={inputStyle}
-                />
-              </div>
+        <PopupForm
+          title="Create New Group"
+          onClose={() => setOpen(false)}
+          onSubmit={handleSubmit}
+          name={name}
+          description={description}
+          setName={setName}
+          setDescription={setDescription}
+          selectedPermissions={selectedPermissions}
+          setPermissionModalOpen={setPermissionModalOpen}
+        />
+      )}
 
-              <div style={formGroup}>
-                <label style={labelStyle}>Description</label>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  required
-                  style={{ ...inputStyle, height: 80 }}
-                />
-              </div>
+      {/* Popup Edit */}
+      {editOpen && (
+        <PopupForm
+          title={`Edit Group #${selectedId}`}
+          onClose={() => {
+            setEditOpen(false);
+            setSelectedId(null);
+          }}
+          onSubmit={handleUpdate}
+          name={name}
+          description={description}
+          setName={setName}
+          setDescription={setDescription}
+          selectedPermissions={selectedPermissions}
+          setPermissionModalOpen={setPermissionModalOpen}
+          loading={isLoadingGroupId || isFetchingGroupId}
+        />
+      )}
 
-              <div style={formGroup}>
-                <label style={labelStyle}>Permissions</label>
-                <button
-                  type="button"
-                  onClick={() => setPermissionModalOpen(true)}
+      {/* Nested Permission Modal */}
+      {permissionModalOpen && (
+        <div style={overlayInnerStyle}>
+          <div style={{ ...modalStyle, maxWidth: 1200 }}>
+            <h3>Select Permissions</h3>
+            {isPermissionsLoading ? (
+              <p>Loading permissions...</p>
+            ) : (
+              <>
+                <div style={{ marginBottom: 10, display: "flex", gap: 10 }}>
+                  <input
+                    type="text"
+                    placeholder="Search name..."
+                    value={nameInput}
+                    onChange={(e) => setNameInput(e.target.value)}
+                    style={inputStyle}
+                  />
+                  <select
+                    value={resource}
+                    onChange={(e) => setResource(e.target.value)}
+                    style={inputStyle}
+                  >
+                    <option value="">All Resources</option>
+                    <option value="user">user</option>
+                    <option value="installation">installation</option>
+                    <option value="measurement">measurement</option>
+                    <option value="logistic">logistic</option>
+                    <option value="invoice">invoice</option>
+                  </select>
+                  <select
+                    value={action}
+                    onChange={(e) => setAction(e.target.value)}
+                    style={inputStyle}
+                  >
+                    <option value="">All Actions</option>
+                    <option value="create">create</option>
+                    <option value="read">read</option>
+                    <option value="update">update</option>
+                    <option value="delete">delete</option>
+                  </select>
+                </div>
+
+                <div
                   style={{
-                    padding: "10px 16px",
-                    backgroundColor: "#1976d2",
-                    color: "#fff",
-                    border: "none",
-                    borderRadius: 6,
-                    cursor: "pointer",
+                    maxHeight: 400,
+                    overflowY: "auto",
+                    border: "1px solid #ddd",
                   }}
                 >
-                  Choose Permissions
-                </button>
-                {selectedPermissions.length > 0 && (
-                  <p style={{ marginTop: 8 }}>
-                    Selected IDs: {selectedPermissions.join(", ")}
-                  </p>
-                )}
-              </div>
-
-              <div style={footerStyle}>
-                <button type="submit" style={submitBtnStyle}>
-                  Create Group
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setOpen(false)}
-                  style={cancelBtnStyle}
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-
-          {/* Nested Permission Modal */}
-          {permissionModalOpen && (
-            <div style={overlayInnerStyle}>
-              <div style={{ ...modalStyle, maxWidth: 1200 }}>
-                <h3>Select Permissions</h3>
-                {isPermissionsLoading ? (
-                  <p>Loading permissions...</p>
-                ) : (
-                  <>
-                    {/* Filter Row */}
-                    <div style={{ marginBottom: 10, display: "flex", gap: 10 }}>
-                      <input
-                        type="text"
-                        placeholder="Search name..."
-                        value={nameInput}
-                        onChange={(e) => setNameInput(e.target.value)}
-                        style={inputStyle}
-                      />
-                      <select
-                        value={resource}
-                        onChange={(e) => setResource(e.target.value)}
-                        style={inputStyle}
-                      >
-                        <option value="">All Resources</option>
-                        <option value="user">user</option>
-                        <option value="installation">installation</option>
-                        <option value="measurement">measurement</option>
-                        <option value="logistic">logistic</option>
-                        <option value="invoice">invoice</option>
-                      </select>
-                      <select
-                        value={action}
-                        onChange={(e) => setAction(e.target.value)}
-                        style={inputStyle}
-                      >
-                        <option value="">All Actions</option>
-                        <option value="create">create</option>
-                        <option value="read">read</option>
-                        <option value="update">update</option>
-                        <option value="delete">delete</option>
-                      </select>
-                    </div>
-
+                  {permissions.map((perm) => (
                     <div
+                      key={perm.id}
                       style={{
-                        maxHeight: 400,
-                        overflowY: "auto",
-                        border: "1px solid #ddd",
+                        display: "grid",
+                        gridTemplateColumns: "50px 1fr 1fr 1fr",
+                        padding: "8px 12px",
+                        borderBottom: "1px solid #eee",
+                        alignItems: "center",
                       }}
                     >
-                      {permissions.map((perm) => (
-                        <div
-                          key={perm.id}
-                          style={{
-                            display: "grid",
-                            gridTemplateColumns: "50px 1fr 1fr 1fr",
-                            padding: "8px 12px",
-                            borderBottom: "1px solid #eee",
-                            alignItems: "center",
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedPermissions.includes(perm.id)}
-                            onChange={() => handlePermissionSelect(perm.id)}
-                          />
-                          <div>{perm.name}</div>
-                          <div>{perm.resource}</div>
-                          <div>{perm.action}</div>
-                        </div>
-                      ))}
+                      <input
+                        type="checkbox"
+                        checked={selectedPermissions.includes(perm.id)}
+                        onChange={() => handlePermissionSelect(perm.id)}
+                      />
+                      <div>{perm.name}</div>
+                      <div>{perm.resource}</div>
+                      <div>{perm.action}</div>
                     </div>
-                  </>
-                )}
-                <div style={{ textAlign: "right", marginTop: 16 }}>
-                  <button
-                    onClick={() => setPermissionModalOpen(false)}
-                    style={{
-                      padding: "8px 14px",
-                      backgroundColor: "#4caf50",
-                      color: "#fff",
-                      border: "none",
-                      borderRadius: 6,
-                      cursor: "pointer",
-                    }}
-                  >
-                    Done
-                  </button>
+                  ))}
                 </div>
-              </div>
+              </>
+            )}
+            <div
+              style={{
+                textAlign: "right",
+                marginTop: 16,
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: 10,
+              }}
+            >
+              {/* Nút Done */}
+              <button
+                onClick={() => setPermissionModalOpen(false)}
+                className="px-4 py-2 bg-[#4caf50] text-white rounded-md cursor-pointer border-none hover:bg-[#43a047] transition"
+              >
+                Done
+              </button>
+              {/* Nút Cancel */}
+              <button
+                onClick={() => {
+                  setSelectedPermissions([]); // Xóa hết lựa chọn
+                  setPermissionModalOpen(false); // Đóng popup
+                }}
+                className="px-4 py-2 bg-[#ccc] text-black rounded-md cursor-pointer border-none hover:bg-red-500 hover:text-white transition"
+              >
+                Cancel
+              </button>
             </div>
-          )}
+          </div>
         </div>
       )}
     </div>
   );
 };
 
-// --- Styles ---
+// --- Popup Form dùng chung cho Create & Edit ---
+const PopupForm = ({
+  title,
+  onClose,
+  onSubmit,
+  name,
+  description,
+  setName,
+  setDescription,
+  selectedPermissions,
+  setPermissionModalOpen,
+  loading = false,
+}: any) => (
+  <div style={overlayStyle}>
+    <div style={{ ...modalStyle, maxWidth: 600 }}>
+      <div style={headerStyle}>
+        <h2>{title}</h2>
+        <button onClick={onClose} style={closeBtnStyle}>
+          ×
+        </button>
+      </div>
+
+      {loading ? (
+        <p>Loading group data...</p>
+      ) : (
+        <form onSubmit={onSubmit}>
+          <div style={formGroup}>
+            <label style={labelStyle}>Group Name</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              style={inputStyle}
+            />
+          </div>
+          <div style={formGroup}>
+            <label style={labelStyle}>Description</label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              required
+              style={{ ...inputStyle, height: 80 }}
+            />
+          </div>
+          <div style={formGroup}>
+            <label style={labelStyle}>Permissions</label>
+            <button
+              type="button"
+              onClick={() => setPermissionModalOpen(true)}
+              className="px-4 py-2 bg-[#1976d2] text-white rounded-md cursor-pointer border-none hover:bg-[#27b771] transition"
+            >
+              Choose Permissions
+            </button>
+            {selectedPermissions.length > 0 && (
+              <p style={{ marginTop: 8 }}>
+                Selected IDs: {selectedPermissions.join(", ")}
+              </p>
+            )}
+          </div>
+
+          <div style={footerStyle}>
+            <button
+              type="submit"
+              className="px-5 py-2.5 bg-[#27b771] text-white rounded-md cursor-pointer border-none hover:bg-[#1976d2] transition"
+            >
+              Save
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-5 py-2.5 bg-[#ccc] text-black rounded-md cursor-pointer border-none hover:bg-red-500 transition hover:text-white"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+    </div>
+  </div>
+);
+
+// --- Styles giữ nguyên ---
 const thStyle: React.CSSProperties = {
   border: "1px solid #ddd",
   padding: "8px",
@@ -407,20 +528,5 @@ const inputStyle = {
   width: "100%",
 };
 const footerStyle = { display: "flex", justifyContent: "flex-end", gap: 10 };
-const submitBtnStyle = {
-  padding: "10px 20px",
-  backgroundColor: "#4CAF50",
-  color: "#fff",
-  border: "none",
-  borderRadius: 6,
-  cursor: "pointer",
-};
-const cancelBtnStyle = {
-  padding: "10px 20px",
-  backgroundColor: "#ccc",
-  border: "none",
-  borderRadius: 6,
-  cursor: "pointer",
-};
 
 export default GroupPermission;
