@@ -1,4 +1,6 @@
 import DeleteIcon from "@mui/icons-material/Delete";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+
 import {
   Box,
   Button,
@@ -161,13 +163,12 @@ const PermissionPage: React.FC = () => {
     <Container maxWidth="lg" sx={{ mt: 4 }}>
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-2">
-          <Button
-            variant="outlined"
-            color="primary"
+          <button
             onClick={() => navigate("/home/admin/groupPermission")}
+            className="px-3 py-2 bg-[#1976d2] text-white rounded-md hover:bg-[#27b771] transition"
           >
-            Back
-          </Button>
+            <ArrowBackIcon />
+          </button>
 
           <Typography variant="h4" gutterBottom>
             Permissions Management

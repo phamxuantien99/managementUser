@@ -8,6 +8,7 @@ import { toast } from "react-toastify";
 import apiAxios from "../../../../api/api";
 import { useDebounce } from "../../../service/hooks/useDebounce";
 import { useGroups } from "../../../service/hooks/useGroup";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 
 interface Permission {
   id: number;
@@ -171,7 +172,7 @@ const GroupPermission = () => {
           onClick={() => navigate("/home/admin")}
           className="px-3 py-2 bg-[#1976d2] text-white rounded-md hover:bg-[#27b771] transition"
         >
-          Back
+          <ArrowBackIcon />
         </button>
         <button
           onClick={() => {
