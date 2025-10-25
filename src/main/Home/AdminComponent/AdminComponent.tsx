@@ -494,7 +494,9 @@ const AdminComponent: React.FC = () => {
                           .map((group: any) => {
                             const formattedName = group.name
                               .replace(/_/g, " ") // thay _ bằng dấu cách
-                              .replace(/\b\w/g, (char) => char.toUpperCase()); // viết hoa chữ cái đầu mỗi từ
+                              .replace(/\b\w/g, (char: any) =>
+                                char.toUpperCase()
+                              ); // viết hoa chữ cái đầu mỗi từ
                             return `${group.id} - ${formattedName}`;
                           })
                           .join(", ")}
