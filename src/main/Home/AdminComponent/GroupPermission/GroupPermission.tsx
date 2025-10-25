@@ -358,7 +358,15 @@ const GroupPermission = () => {
                         checked={selectedPermissions.includes(perm.id)}
                         onChange={() => handlePermissionSelect(perm.id)}
                       />
-                      <div>{perm.name}</div>
+                      <div>
+                        {perm.name
+                          .replace(/_/g, " ") // thay dấu gạch dưới bằng dấu cách
+                          .replace(/\b\w/g, (char: any) =>
+                            char.toUpperCase()
+                          )}{" "}
+                        {/* viết hoa chữ cái đầu mỗi từ */}
+                      </div>
+
                       <div>{perm.resource}</div>
                       <div>{perm.action}</div>
                     </div>
