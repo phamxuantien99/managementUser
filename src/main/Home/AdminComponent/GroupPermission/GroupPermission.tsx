@@ -218,11 +218,20 @@ const GroupPermission = () => {
                   <td style={tdStyle}>Yes</td>
                   <td style={tdStyle}>
                     <ul style={{ margin: 0, paddingLeft: 16 }}>
-                      {role.permissions.map((perm) => (
-                        <li key={perm.id}>
-                          {perm.name} ({perm.action})
-                        </li>
-                      ))}
+                      {role.permissions.map((perm) => {
+                        const formatText = (text: string) =>
+                          text
+                            .replace(/_/g, " ") // thay _ bằng dấu cách
+                            .replace(/\b\w/g, (char: any) =>
+                              char.toUpperCase()
+                            ); // viết hoa chữ cái đầu
+
+                        return (
+                          <li key={perm.id}>
+                            {formatText(perm.name)} ({formatText(perm.action)})
+                          </li>
+                        );
+                      })}
                     </ul>
                   </td>
                   <td style={tdStyle}>

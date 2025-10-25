@@ -284,7 +284,13 @@ const PermissionPage: React.FC = () => {
               permissions.map((perm, index) => (
                 <TableRow key={perm.id}>
                   <TableCell>{index + 1}</TableCell>
-                  <TableCell>{perm.name}</TableCell>
+                  <TableCell>
+                    {perm.name
+                      .replace(/_/g, " ") // thay dấu _ bằng dấu cách
+                      .replace(/\b\w/g, (char: any) => char.toUpperCase())}{" "}
+                    {/* viết hoa chữ cái đầu */}
+                  </TableCell>
+
                   <TableCell>{perm.resource}</TableCell>
                   <TableCell>{perm.action}</TableCell>
                   <TableCell>
