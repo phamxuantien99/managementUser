@@ -372,16 +372,6 @@ const GroupPermission = () => {
               >
                 Done
               </button>
-              {/* Nút Cancel */}
-              <button
-                onClick={() => {
-                  setSelectedPermissions([]); // Xóa hết lựa chọn
-                  setPermissionModalOpen(false); // Đóng popup
-                }}
-                className="px-4 py-2 bg-[#ccc] text-black rounded-md cursor-pointer border-none hover:bg-red-500 hover:text-white transition"
-              >
-                Cancel
-              </button>
             </div>
           </div>
         </div>
