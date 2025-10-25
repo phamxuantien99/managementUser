@@ -491,7 +491,12 @@ const AdminComponent: React.FC = () => {
                       </td>
                       <td className="py-2 px-3 border text-center">
                         {user?.groups
-                          .map((group: any) => `${group.id} - ${group.name}`)
+                          .map((group: any) => {
+                            const formattedName = group.name
+                              .replace(/_/g, " ") // thay _ bằng dấu cách
+                              .replace(/\b\w/g, (char) => char.toUpperCase()); // viết hoa chữ cái đầu mỗi từ
+                            return `${group.id} - ${formattedName}`;
+                          })
                           .join(", ")}
                       </td>
 
