@@ -1,6 +1,7 @@
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
+import ClearIcon from "@mui/icons-material/Clear";
 import {
   Box,
   Button,
@@ -98,6 +99,10 @@ const fetchUsers = async ({
 };
 
 const AdminComponent: React.FC = () => {
+  const [removedPermissionIds, setRemovedPermissionIds] = useState<number[]>(
+    []
+  );
+
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
   const [editUser, setEditUser] = useState<User | null>(null);
@@ -193,30 +198,45 @@ const AdminComponent: React.FC = () => {
     setOpenAddPermission(false);
     setIdUserPermission(0);
     setSelectedGroupIds([]);
+    setRemovedPermissionIds([]);
   };
+
   const [loadingSaveUser, setLoadingSaveUser] = useState(false);
 
   const handleAddPermissionForUser = async () => {
     setLoadingSaveUser(true);
 
     try {
+      // ✅ Lấy tất cả quyền cũ còn active
+      const currentActiveIds =
+        userPermissions
+          ?.filter(
+            (perm) => perm.is_active && !removedPermissionIds.includes(perm.id)
+          )
+          .map((perm) => perm.id) || [];
+
+      // ✅ Hợp nhất quyền cũ (sau khi loại bỏ xóa) + quyền mới chọn
+      const finalGroupIds = Array.from(
+        new Set([...currentActiveIds, ...selectedGroupIds])
+      );
+
       await apiAxios.post(
         `https://ec2api.deltatech-backend.com/api/v1/user/assign?user_id=${idUserPermission}`,
-        selectedGroupIds
+        finalGroupIds
       );
-      toast.success("Permission added successfully!");
+
+      toast.success("Permission updated successfully!");
       setOpenAddPermission(false);
       setLoadingSaveUser(false);
       setIdUserPermission(0);
       setSelectedGroupIds([]);
+      setRemovedPermissionIds([]); // reset lại
       queryClient.invalidateQueries({ queryKey: ["userPermissions"] });
       queryClient.invalidateQueries({ queryKey: ["users"] });
     } catch (error) {
       console.error("Failed to add permission:", error);
       setLoadingSaveUser(false);
-      toast.error(
-        "Failed to add permission! Please check the user and try again."
-      );
+      toast.error("Failed to update permissions! Please try again.");
     }
   };
 
@@ -429,7 +449,7 @@ const AdminComponent: React.FC = () => {
                       ))}
                     </select>
                   </th>
-                  <th className="py-2 px-3 border text-center">Permissions</th>
+                  <th className="py-2 px-3 border text-center">Groups</th>
 
                   <th className="py-2 px-3 border text-center">Actions</th>
                 </tr>
@@ -470,8 +490,11 @@ const AdminComponent: React.FC = () => {
                         {user?.is_active ? "✔️" : "❌"}
                       </td>
                       <td className="py-2 px-3 border text-center">
-                        {user?.groups.map((group: any) => group.id).join(", ")}
+                        {user?.groups
+                          .map((group: any) => `${group.id} - ${group.name}`)
+                          .join(", ")}
                       </td>
+
                       <td className="py-2 px-3 border text-center">
                         <IconButton
                           onClick={() => handleOpen(user)}
@@ -626,7 +649,7 @@ const AdminComponent: React.FC = () => {
                 {/* ✅ Hiển thị các quyền hiện tại của user */}
                 <Box mb={3}>
                   <DialogTitle sx={{ fontSize: 18, fontWeight: "bold", pb: 1 }}>
-                    Current permissions:
+                    Current Groups:
                   </DialogTitle>
 
                   {isUserPermissionsLoading ? (
@@ -646,7 +669,11 @@ const AdminComponent: React.FC = () => {
                       }}
                     >
                       {userPermissions
-                        .filter((perm) => perm.is_active)
+                        .filter(
+                          (perm) =>
+                            perm.is_active &&
+                            !removedPermissionIds.includes(perm.id)
+                        )
                         .map((perm) => (
                           <Chip
                             key={perm.id}
@@ -654,6 +681,13 @@ const AdminComponent: React.FC = () => {
                             color="primary"
                             variant="outlined"
                             sx={{ fontWeight: 500 }}
+                            onDelete={() => {
+                              setRemovedPermissionIds((prev) => [
+                                ...prev,
+                                perm.id,
+                              ]);
+                            }}
+                            deleteIcon={<ClearIcon />}
                           />
                         ))}
                     </Paper>
