@@ -155,6 +155,8 @@ const PermissionPage: React.FC = () => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
+  console.log({ formData });
+
   const handleSubmit = () => {
     mutation.mutate(formData);
   };

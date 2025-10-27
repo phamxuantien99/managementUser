@@ -491,12 +491,13 @@ const AdminComponent: React.FC = () => {
                       </td>
                       <td className="py-2 px-3 border text-center">
                         {user?.groups
+                          ?.filter((group: any) => group.is_active === true) // ✅ chỉ lấy group active
                           .map((group: any) => {
                             const formattedName = group.name
                               .replace(/_/g, " ") // thay _ bằng dấu cách
                               .replace(/\b\w/g, (char: any) =>
                                 char.toUpperCase()
-                              ); // viết hoa chữ cái đầu mỗi từ
+                              ); // viết hoa chữ cái đầu
                             return `${group.id} - ${formattedName}`;
                           })
                           .join(", ")}

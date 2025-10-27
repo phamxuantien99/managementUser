@@ -111,15 +111,25 @@ const GroupPermission = () => {
         "https://ec2api.deltatech-backend.com/api/v1/groups",
         body
       );
+
       queryClient.invalidateQueries({ queryKey: ["groups"] });
       toast.success("✅ Group created successfully!");
       setName("");
       setDescription("");
       setSelectedPermissions([]);
       setTimeout(() => setOpen(false), 1000);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      toast.error("❌ Failed to create group.");
+
+      // ✅ Kiểm tra status code
+      if (err.response?.status === 400) {
+        // Kiểm tra message trả về từ API
+        const message = err.response?.data?.detail;
+
+        toast.error(`❌ ${message}`);
+      } else {
+        toast.error("❌ Failed to create group.");
+      }
     }
   };
 
@@ -134,6 +144,8 @@ const GroupPermission = () => {
         body
       );
       queryClient.invalidateQueries({ queryKey: ["groups"] });
+      queryClient.invalidateQueries({ queryKey: ["users"], exact: false });
+
       toast.success("✅ Group updated successfully!");
       setEditOpen(false);
       setSelectedId(null);
@@ -151,6 +163,8 @@ const GroupPermission = () => {
         `https://ec2api.deltatech-backend.com/api/v1/groups/${id}`
       );
       queryClient.invalidateQueries({ queryKey: ["groups"] });
+      queryClient.invalidateQueries({ queryKey: ["users"], exact: false });
+
       toast.success("Group deleted successfully!");
     } catch (error) {
       console.error(error);
