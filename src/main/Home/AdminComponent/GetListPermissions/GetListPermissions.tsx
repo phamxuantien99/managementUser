@@ -124,11 +124,11 @@ const PermissionPage: React.FC = () => {
   // 🔹 Mutation thêm mới
   const mutation = useMutation({
     mutationFn: async (newPermission: Omit<Permission, "id">) => {
-      await apiAxios.post(API_URL, newPermission);
+      const params = new URLSearchParams(newPermission as any).toString();
+      await apiAxios.post(`${API_URL}?${params}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["permissions"] });
-
       toast.success("Permission added successfully!");
       setFormData({
         name: "",
@@ -137,8 +137,9 @@ const PermissionPage: React.FC = () => {
       });
       setOpenDialog(false);
     },
-    onError: () => {
-      toast.error("Failed to add permission.");
+    onError: (error: any) => {
+      console.error("Create Permission Error:", error.response?.data);
+      toast.error(error.response?.data?.message || "Failed to add permission.");
     },
   });
 
