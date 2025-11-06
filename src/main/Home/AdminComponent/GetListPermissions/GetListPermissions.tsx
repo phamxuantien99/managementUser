@@ -1,11 +1,10 @@
-import DeleteIcon from "@mui/icons-material/Delete";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import DeleteIcon from "@mui/icons-material/Delete";
 
 import {
   Box,
   Button,
   CircularProgress,
-  Container,
   Dialog,
   DialogActions,
   DialogContent,
@@ -52,11 +51,17 @@ const PermissionPage: React.FC = () => {
   const resource = searchParams.get("resource") || "";
   const action = searchParams.get("action") || "";
   const name = searchParams.get("name") || "";
+  const description = searchParams.get("description") || "";
+  const endpoint = searchParams.get("endpoint") || "";
+  const method = searchParams.get("method") || "";
 
-  const [formData, setFormData] = useState<Omit<any, "id">>({
+  const [formData, setFormData] = useState<Omit<Permission, "id">>({
     name: "",
     resource: "",
     action: "",
+    description: "",
+    endpoint: "",
+    method: "",
   });
 
   const [openDialog, setOpenDialog] = useState(false);
@@ -67,8 +72,11 @@ const PermissionPage: React.FC = () => {
     if (resource) params.append("resource", resource);
     if (action) params.append("action", action);
     if (name) params.append("name", name);
+    if (description) params.append("description", description);
+    if (endpoint) params.append("endpoint", endpoint);
+    if (method) params.append("method", method);
     return `${API_URL}?${params.toString()}`;
-  }, [resource, action, name]);
+  }, [resource, action, name, description, endpoint, method]);
 
   // 🔹 Lấy danh sách Permission
   const { data: permissions = [], isLoading } = useQuery<Permission[]>({
@@ -80,22 +88,43 @@ const PermissionPage: React.FC = () => {
   });
 
   // --- 2️⃣ Thêm state local ---
-  const [nameInput, setNameInput] = useState(name);
+  // --- 2️⃣ State local ---
+  const [inputs, setInputs] = useState({
+    name,
+    description,
+    endpoint,
+    method,
+  });
 
-  // --- 3️⃣ Debounce giá trị nhập ---
-  const debouncedName = useDebounce(nameInput, 500);
+  // --- 3️⃣ Debounce toàn bộ object ---
+  const debouncedInputs = useDebounce(inputs, 500);
 
   // --- 4️⃣ Cập nhật URL sau khi debounce ổn định ---
   useEffect(() => {
-    // chỉ cập nhật nếu khác với current URL param
-    if (debouncedName !== name) {
-      const newParams = new URLSearchParams(searchParams);
-      if (debouncedName) newParams.set("name", debouncedName);
-      else newParams.delete("name");
-      setSearchParams(newParams);
-    }
+    const newParams = new URLSearchParams(searchParams);
+    let hasChanged = false;
+
+    // Lặp qua từng field để cập nhật param tương ứng
+    Object.entries(debouncedInputs).forEach(([key, value]) => {
+      const current = searchParams.get(key) || "";
+      if (value !== current) {
+        hasChanged = true;
+        if (value) newParams.set(key, value);
+        else newParams.delete(key);
+      }
+    });
+
+    // Chỉ update nếu thực sự có thay đổi
+    if (hasChanged) setSearchParams(newParams);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedName]);
+  }, [debouncedInputs]);
+
+  // --- 5️⃣ Hàm helper onChange ---
+  const handleChangeSearchInput =
+    (field: keyof typeof inputs) =>
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setInputs((prev) => ({ ...prev, [field]: e.target.value }));
+    };
 
   // Mutation Delete
 
@@ -120,6 +149,16 @@ const PermissionPage: React.FC = () => {
       setDeletingId(null); // Reset sau khi xóa xong hoặc lỗi
     },
   });
+  // 🔹 Cập nhật URL khi thay đổi filter
+  const handleFilterChange = (key: string, value: string) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (value) newParams.set(key, value);
+    else newParams.delete(key);
+    setSearchParams(newParams);
+  };
+
+  // 🔹 Lưu lỗi của từng trường
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   // 🔹 Mutation thêm mới
   const mutation = useMutation({
@@ -134,7 +173,11 @@ const PermissionPage: React.FC = () => {
         name: "",
         resource: "",
         action: "",
+        description: "",
+        endpoint: "",
+        method: "",
       });
+      setErrors({});
       setOpenDialog(false);
     },
     onError: (error: any) => {
@@ -143,27 +186,36 @@ const PermissionPage: React.FC = () => {
     },
   });
 
-  // 🔹 Cập nhật URL khi thay đổi filter
-  const handleFilterChange = (key: string, value: string) => {
-    const newParams = new URLSearchParams(searchParams);
-    if (value) newParams.set(key, value);
-    else newParams.delete(key);
-    setSearchParams(newParams);
-  };
-
-  // 🔹 Form thay đổi
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-  };
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
 
-  console.log({ formData });
+    // 🔹 Xóa lỗi khi người dùng bắt đầu nhập lại
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: "" }));
+    }
+  };
 
   const handleSubmit = () => {
+    const newErrors: Record<string, string> = {};
+    const requiredFields = ["name", "resource", "action"];
+
+    requiredFields.forEach((field) => {
+      if (!formData[field as keyof typeof formData].trim()) {
+        newErrors[field] = "This field is required";
+      }
+    });
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return; // ❌ Dừng lại nếu có lỗi
+    }
+
     mutation.mutate(formData);
   };
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4 }}>
+    <div className="mt-4 mx-4">
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-2">
           <button
@@ -192,19 +244,28 @@ const PermissionPage: React.FC = () => {
           <TableHead>
             {/* Tiêu đề cột */}
             <TableRow>
-              <TableCell sx={{ width: "10%" }}>
+              <TableCell sx={{ width: "5%" }}>
                 <strong>No.</strong>
               </TableCell>
-              <TableCell sx={{ width: "30%" }}>
+              <TableCell sx={{ width: "15%" }}>
                 <strong>Name</strong>
               </TableCell>
-              <TableCell sx={{ width: "30%" }}>
+              <TableCell sx={{ width: "15%" }}>
                 <strong>Resource</strong>
               </TableCell>
-              <TableCell sx={{ width: "30%" }}>
+              <TableCell sx={{ width: "15%" }}>
                 <strong>Action</strong>
               </TableCell>
-              <TableCell sx={{ width: "30%" }}>
+              <TableCell sx={{ width: "17.5%" }}>
+                <strong>Description</strong>
+              </TableCell>
+              <TableCell sx={{ width: "17.5%" }}>
+                <strong>Endpoint</strong>
+              </TableCell>
+              <TableCell sx={{ width: "10%" }}>
+                <strong>Method</strong>
+              </TableCell>
+              <TableCell sx={{ width: "5%" }}>
                 <strong>Delete</strong>
               </TableCell>
             </TableRow>
@@ -219,8 +280,8 @@ const PermissionPage: React.FC = () => {
                   fullWidth
                   size="small"
                   placeholder="Search Name"
-                  value={nameInput}
-                  onChange={(e) => setNameInput(e.target.value)}
+                  value={inputs.name}
+                  onChange={handleChangeSearchInput("name")}
                 />
               </TableCell>
 
@@ -271,31 +332,74 @@ const PermissionPage: React.FC = () => {
                   </Select>
                 </Box>
               </TableCell>
+
+              {/* Filter description */}
+              <TableCell>
+                <TextField
+                  fullWidth
+                  size="small"
+                  placeholder="Search Description"
+                  value={inputs.description}
+                  onChange={handleChangeSearchInput("description")}
+                />
+              </TableCell>
+
+              {/* Filter endpoint */}
+              <TableCell>
+                <TextField
+                  fullWidth
+                  size="small"
+                  placeholder="Search Endpoint"
+                  value={inputs.endpoint}
+                  onChange={handleChangeSearchInput("endpoint")}
+                />
+              </TableCell>
+
+              {/* Filter method */}
+              <TableCell>
+                <TextField
+                  fullWidth
+                  size="small"
+                  placeholder="Search Method"
+                  value={inputs.method}
+                  onChange={handleChangeSearchInput("method")}
+                />
+              </TableCell>
+              <TableCell></TableCell>
             </TableRow>
           </TableHead>
 
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={4}>Loading...</TableCell>
+                <TableCell
+                  colSpan={4}
+                  align="center"
+                  className=" !text-red-500"
+                >
+                  Loading...
+                </TableCell>
               </TableRow>
             ) : permissions.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4}>No results found.</TableCell>
+                <TableCell
+                  colSpan={4}
+                  align="center"
+                  className=" !text-red-500"
+                >
+                  No Results Found !!
+                </TableCell>
               </TableRow>
             ) : (
               permissions.map((perm, index) => (
                 <TableRow key={perm.id}>
                   <TableCell>{index + 1}</TableCell>
-                  <TableCell>
-                    {perm.name
-                      .replace(/_/g, " ") // thay dấu _ bằng dấu cách
-                      .replace(/\b\w/g, (char: any) => char.toUpperCase())}{" "}
-                    {/* viết hoa chữ cái đầu */}
-                  </TableCell>
-
+                  <TableCell>{perm.name}</TableCell>
                   <TableCell>{perm.resource}</TableCell>
                   <TableCell>{perm.action}</TableCell>
+                  <TableCell>{perm.description}</TableCell>
+                  <TableCell>{perm.endpoint}</TableCell>
+                  <TableCell>{perm.method}</TableCell>
                   <TableCell>
                     <IconButton
                       color="error"
@@ -329,6 +433,8 @@ const PermissionPage: React.FC = () => {
           <Box display="flex" flexDirection="column" gap={2} mt={1}>
             {Object.keys(formData).map((key) => {
               const label = key.charAt(0).toUpperCase() + key.slice(1);
+              const value = (formData as any)[key];
+              const errorText = errors[key];
 
               if (key === "action") {
                 return (
@@ -337,9 +443,11 @@ const PermissionPage: React.FC = () => {
                     key={key}
                     name={key}
                     label="Action"
-                    value={(formData as any)[key]}
+                    value={value}
                     onChange={handleChange}
                     fullWidth
+                    error={!!errorText}
+                    helperText={errorText}
                   >
                     {["create", "read", "update", "delete"].map((option) => (
                       <MenuItem key={option} value={option}>
@@ -357,9 +465,11 @@ const PermissionPage: React.FC = () => {
                     key={key}
                     name={key}
                     label="Resource"
-                    value={(formData as any)[key]}
+                    value={value}
                     onChange={handleChange}
                     fullWidth
+                    error={!!errorText}
+                    helperText={errorText}
                   >
                     {[
                       "user",
@@ -381,9 +491,11 @@ const PermissionPage: React.FC = () => {
                   key={key}
                   name={key}
                   label={label}
-                  value={(formData as any)[key]}
+                  value={value}
                   onChange={handleChange}
                   fullWidth
+                  error={!!errorText}
+                  helperText={errorText}
                 />
               );
             })}
@@ -403,7 +515,7 @@ const PermissionPage: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Container>
+    </div>
   );
 };
 
