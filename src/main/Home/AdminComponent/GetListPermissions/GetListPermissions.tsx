@@ -214,6 +214,19 @@ const PermissionPage: React.FC = () => {
     mutation.mutate(formData);
   };
 
+  const handleCloseDialog = () => {
+    setErrors({}); // 🔹 Xóa toàn bộ lỗi
+    setFormData({
+      name: "",
+      resource: "",
+      action: "",
+      description: "",
+      endpoint: "",
+      method: "",
+    }); // (tùy chọn: reset form)
+    setOpenDialog(false);
+  };
+
   return (
     <div className="mt-4 mx-4">
       <div className="flex justify-between items-center mb-4">
@@ -503,7 +516,9 @@ const PermissionPage: React.FC = () => {
         </DialogContent>
 
         <DialogActions>
-          <Button onClick={() => setOpenDialog(false)} color="inherit">
+          <Button onClick={handleCloseDialog} color="inherit">
+            {" "}
+            {/* ✅ thay đổi ở đây */}
             Cancel
           </Button>
           <Button
