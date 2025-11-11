@@ -746,7 +746,7 @@ const AdminComponent: React.FC = () => {
                   >
                     {dataGeroupPermission?.founds
                       ?.filter((group: any) => group.is_active)
-                      .map((group: any) => (
+                      .map((group: any, index: number) => (
                         <MenuItem
                           key={group.id}
                           value={group.id}
@@ -754,7 +754,7 @@ const AdminComponent: React.FC = () => {
                         >
                           <Box>
                             <Typography fontWeight="bold">
-                              {group.id} - {formatLabel(group.name)}
+                              {index + 1} - {formatLabel(group.name)}
                             </Typography>
                             <Box mt={0.5} pl={1}>
                               {group.permissions.length > 0 ? (
