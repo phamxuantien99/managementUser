@@ -224,11 +224,14 @@ const GroupPermission = () => {
           <tbody>
             {dataGroupPermission?.founds
               ?.filter((role: Role) => role.is_active)
-              .map((role: Role) => (
+              .map((role: Role, index: number) => (
                 <tr key={role.id}>
-                  <td style={tdStyle}>{role.id}</td>
+                  <td style={tdStyle}>{index + 1}</td>
                   <td style={tdStyle}>{role.name}</td>
-                  <td style={tdStyle}>{role.description}</td>
+                  <td style={{ ...tdStyle, maxWidth: "300px" }}>
+                    {role.description}
+                  </td>
+
                   <td style={tdStyle}>Yes</td>
                   <td style={tdStyle}>
                     <ul style={{ margin: 0, paddingLeft: 16 }}>
